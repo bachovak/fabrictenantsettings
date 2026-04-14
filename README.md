@@ -1,2 +1,2 @@
 # fabrictenantsettings
-Tool to track and recommend MS Fabric tenant settings
+ An automatically maintained reference tool for Microsoft Fabric tenant settings
