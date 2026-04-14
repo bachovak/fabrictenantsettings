@@ -1,0 +1,86 @@
+name: Update Fabric Tenant Settings
+
+on:
+  # Run every Monday at 09:00 UTC
+  schedule:
+    - cron: "0 9 * * 1"
+
+  # Allow manual trigger for testing
+  workflow_dispatch:
+
+jobs:
+  update:
+    name: Scrape and update settings
+    runs-on: ubuntu-latest
+
+    # Grant write permission so we can push the updated files back
+    permissions:
+      contents: write
+
+    steps:
+      # ----------------------------------------------------------------
+      # 1. Check out the repository
+      # ----------------------------------------------------------------
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # Fetch full history so git can push back to main
+          fetch-depth: 0
+
+      # ----------------------------------------------------------------
+      # 2. Set up Python 3.11
+      # ----------------------------------------------------------------
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      # ----------------------------------------------------------------
+      # 3. Install dependencies
+      # ----------------------------------------------------------------
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      # ----------------------------------------------------------------
+      # 4. Run the scraper
+      #    Exit code 0 → no changes (job succeeds, nothing to do)
+      #    Exit code 1 → changes detected (we rebuild and commit below)
+      # ----------------------------------------------------------------
+      - name: Scrape Microsoft Fabric tenant settings page
+        id: scrape
+        run: |
+          python scripts/scrape.py
+          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+        # Allow the step to "fail" — we check the exit code below
+        continue-on-error: true
+
+      # ----------------------------------------------------------------
+      # 5a. Rebuild docs/index.html (only when changes were detected)
+      # ----------------------------------------------------------------
+      - name: Rebuild index.html
+        if: steps.scrape.outputs.exit_code == '1'
+        run: python scripts/build.py
+
+      # ----------------------------------------------------------------
+      # 5b. Commit and push changes back to main
+      # ----------------------------------------------------------------
+      - name: Commit and push updated files
+        if: steps.scrape.outputs.exit_code == '1'
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/settings.json docs/index.html data/last_diff.txt
+          git commit -m "auto: update settings $(date -u +'%Y-%m-%d')"
+          git push
+
+      # ----------------------------------------------------------------
+      # 5c. Exit with failure so GitHub sends the notification email.
+      #     The diff summary printed by scrape.py is visible in this log.
+      # ----------------------------------------------------------------
+      - name: Signal failure to trigger GitHub notification email
+        if: steps.scrape.outputs.exit_code == '1'
+        run: |
+          echo "::error::Changes detected in Microsoft Fabric tenant settings — see diff above."
+          echo "Open data/settings.json to review new/removed settings."
+          exit 1
