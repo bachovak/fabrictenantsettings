@@ -1,9 +1,9 @@
 name: Update Fabric Tenant Settings
 
 on:
-  # Run every Monday at 09:00 UTC
+  # Run on the 1st of every month at 09:00 UTC
   schedule:
-    - cron: "0 9 * * 1"
+    - cron: "0 9 1 * *"
 
   # Allow manual trigger for testing
   workflow_dispatch:
