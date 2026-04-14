@@ -13,9 +13,10 @@ jobs:
     name: Scrape and update settings
     runs-on: ubuntu-latest
 
-    # Grant write permission so we can push the updated files back
+    # Write access to push the branch; PR creation access for gh cli
     permissions:
       contents: write
+      pull-requests: write
 
     steps:
       # ----------------------------------------------------------------
@@ -24,7 +25,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          # Fetch full history so git can push back to main
           fetch-depth: 0
 
       # ----------------------------------------------------------------
@@ -44,15 +44,14 @@ jobs:
 
       # ----------------------------------------------------------------
       # 4. Run the scraper
-      #    Exit code 0 → no changes (job succeeds, nothing to do)
-      #    Exit code 1 → changes detected (we rebuild and commit below)
+      #    Exit code 0 → no changes (job succeeds silently)
+      #    Exit code 1 → changes detected (open a PR for review below)
       # ----------------------------------------------------------------
       - name: Scrape Microsoft Fabric tenant settings page
         id: scrape
         run: |
           python scripts/scrape.py
           echo "exit_code=$?" >> "$GITHUB_OUTPUT"
-        # Allow the step to "fail" — we check the exit code below
         continue-on-error: true
 
       # ----------------------------------------------------------------
@@ -63,24 +62,43 @@ jobs:
         run: python scripts/build.py
 
       # ----------------------------------------------------------------
-      # 5b. Commit and push changes back to main
+      # 5b. Push changes to a new branch and open a Pull Request.
+      #
+      #     Branch name format: auto/settings-YYYY-MM-DD
+      #     The diff summary from scrape.py becomes the PR body so you
+      #     can see exactly what changed before merging.
       # ----------------------------------------------------------------
-      - name: Commit and push updated files
+      - name: Create branch and open Pull Request
         if: steps.scrape.outputs.exit_code == '1'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          DATE=$(date -u +'%Y-%m-%d')
+          BRANCH="auto/settings-${DATE}"
+
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git checkout -b "$BRANCH"
           git add data/settings.json docs/index.html data/last_diff.txt
-          git commit -m "auto: update settings $(date -u +'%Y-%m-%d')"
-          git push
+          git commit -m "auto: update settings ${DATE}"
+          git push origin "$BRANCH"
+
+          # Use the diff summary as the PR body
+          DIFF_BODY=$(cat data/last_diff.txt 2>/dev/null || echo "See workflow log for details.")
+
+          gh pr create \
+            --title "auto: Fabric tenant settings update ${DATE}" \
+            --body "$(printf '%s\n\n---\n_Opened automatically by the weekly scraper. Review the diff above, fill in any pending settings in \`data/settings.json\`, then approve and merge._' "$DIFF_BODY")" \
+            --base main \
+            --head "$BRANCH"
 
       # ----------------------------------------------------------------
       # 5c. Exit with failure so GitHub sends the notification email.
-      #     The diff summary printed by scrape.py is visible in this log.
+      #     The PR link and diff are visible in the workflow log.
       # ----------------------------------------------------------------
       - name: Signal failure to trigger GitHub notification email
         if: steps.scrape.outputs.exit_code == '1'
         run: |
-          echo "::error::Changes detected in Microsoft Fabric tenant settings — see diff above."
-          echo "Open data/settings.json to review new/removed settings."
+          echo "::error::Changes detected — a Pull Request has been opened for review."
           exit 1
