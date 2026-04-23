@@ -374,6 +374,7 @@ def build_html(settings: list[dict], build_date: str) -> str:
     }}
     table {{
       width: 100%;
+      table-layout: fixed;
       border-collapse: collapse;
       font-size: 0.85rem;
     }}
@@ -389,7 +390,6 @@ def build_html(settings: list[dict], build_date: str) -> str:
       font-size: 0.78rem;
       text-transform: uppercase;
       letter-spacing: 0.04em;
-      white-space: nowrap;
       position: sticky;
       top: 0;
       z-index: 10;
@@ -414,17 +414,19 @@ def build_html(settings: list[dict], build_date: str) -> str:
       padding: 11px 14px;
       vertical-align: top;
       line-height: 1.55;
+      overflow-wrap: break-word;
+      word-break: break-word;
     }}
 
-    /* ===== Column widths ===== */
-    .col-name     {{ min-width: 200px; max-width: 260px; font-weight: 600; color: var(--colour-dark); font-size: 0.88rem; }}
-    .col-category {{ min-width: 130px; max-width: 170px; color: var(--colour-text-muted); font-size: 0.82rem; }}
-    .col-desc     {{ min-width: 190px; max-width: 280px; color: var(--colour-text-muted); font-size: 0.82rem; }}
-    .col-default  {{ min-width: 130px; max-width: 190px; }}
-    .col-rec      {{ min-width: 150px; max-width: 220px; }}
-    .col-req      {{ min-width: 88px;  max-width: 110px; text-align: center; }}
-    .col-impact   {{ min-width: 78px;  max-width: 100px; text-align: center; }}
-    .col-notes    {{ min-width: 210px; color: var(--colour-text-muted); font-size: 0.82rem; }}
+    /* ===== Column widths (percentages for table-layout: fixed) ===== */
+    .col-name     {{ width: 14%; font-weight: 600; color: var(--colour-dark); font-size: 0.88rem; }}
+    .col-category {{ width:  9%; color: var(--colour-text-muted); font-size: 0.82rem; }}
+    .col-desc     {{ width: 16%; color: var(--colour-text-muted); font-size: 0.82rem; }}
+    .col-default  {{ width:  9%; }}
+    .col-rec      {{ width: 12%; }}
+    .col-req      {{ width:  7%; text-align: center; }}
+    .col-impact   {{ width:  6%; text-align: center; }}
+    .col-notes    {{ width: 27%; color: var(--colour-text-muted); font-size: 0.82rem; }}
 
     /* ===== Badges — matches .badge in styles.css, extended with semantic colours ===== */
     .badge {{
